@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: testmanager-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+    depends_on:
+      - db
+      - minio
+    volumes:
+      - ./src:/app/src
+    restart: unless-stopped
+    networks:
+      - testmanager-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: testmanager-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-testmanager}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - testmanager-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: testmanager-minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+    networks:
+      - testmanager-network
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  testmanager-network:
+    driver: bridge
