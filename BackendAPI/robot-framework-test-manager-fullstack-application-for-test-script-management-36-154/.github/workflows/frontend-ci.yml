@@ -1,0 +1,46 @@
+name: FrontendUI CI
+
+on:
+  push:
+    paths:
+      - "**/FrontendUI/**"
+      - "**/.github/workflows/frontend-ci.yml"
+  pull_request:
+    paths:
+      - "**/FrontendUI/**"
+      - "**/.github/workflows/frontend-ci.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: robot-framework-test-manager-fullstack-application-for-test-script-management-36-154/FrontendUI
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: robot-framework-test-manager-fullstack-application-for-test-script-management-36-154/FrontendUI/package-lock.json
+
+      - name: Install
+        run: |
+          if [ -f package.json ]; then npm ci --no-audit --no-fund; else echo "No package.json found"; fi
+
+      - name: Lint (if configured)
+        run: |
+          if npm run | grep -q "lint"; then npm run lint; else echo "No lint script"; fi
+
+      - name: Build
+        env:
+          REACT_APP_API_BASE: "http://localhost:8000"
+        run: |
+          if npm run | grep -q "build"; then npm run build; else echo "No build script, skipping"; fi
+
+      - name: Docker build
+        working-directory: .
+        run: docker build -t frontendui:ci .
