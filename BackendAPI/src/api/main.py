@@ -66,7 +66,18 @@ app = FastAPI(
 )
 
 # Configure CORS
-origins = settings.CORS_ORIGINS.split(",") if settings.CORS_ORIGINS != "*" else ["*"]
+# Parse CORS origins from settings, supporting both comma-separated list and wildcard
+if settings.CORS_ORIGINS == "*":
+    origins = ["*"]
+else:
+    origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
+
+# If no origins specified, default to localhost for development
+if not origins:
+    origins = ["http://localhost:3000", "http://localhost:3001"]
+
+logger.info(f"Configured CORS origins: {origins}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

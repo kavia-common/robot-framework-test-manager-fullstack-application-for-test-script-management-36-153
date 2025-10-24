@@ -1,61 +1,123 @@
 version: '3.8'
 
 services:
-  backend:
-    build: .
-    container_name: testmanager-backend
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-      - CORS_ORIGINS=${CORS_ORIGINS:-*}
-    depends_on:
-      - db
-      - minio
-    volumes:
-      - ./src:/app/src
-    restart: unless-stopped
-    networks:
-      - testmanager-network
-
-  db:
+  # PostgreSQL Database
+  postgres:
     image: postgres:15-alpine
-    container_name: testmanager-db
+    container_name: testmanager-postgres
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-testmanager}
+      POSTGRES_USER: ${POSTGRES_USER:-testuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-testpass}
+      POSTGRES_DB: ${POSTGRES_DB:-testdb}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
     networks:
       - testmanager-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-testuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
+  # MinIO Object Storage
   minio:
     image: minio/minio:latest
     container_name: testmanager-minio
     command: server /data --console-address ":9001"
     environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
       - minio_data:/data
-    restart: unless-stopped
     networks:
       - testmanager-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
+  # MinIO Bucket Initialization
+  minio-init:
+    image: minio/mc:latest
+    container_name: testmanager-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - testmanager-network
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ACCESS_KEY:-minioadmin} ${MINIO_SECRET_KEY:-minioadmin};
+      /usr/bin/mc mb myminio/${MINIO_BUCKET_NAME:-test-logs} --ignore-existing;
+      /usr/bin/mc anonymous set download myminio/${MINIO_BUCKET_NAME:-test-logs};
+      exit 0;
+      "
+
+  # Backend API
+  backend:
+    build:
+      context: ./robot-framework-test-manager-fullstack-application-for-test-script-management-36-153/BackendAPI
+      dockerfile: Dockerfile
+    container_name: testmanager-backend
+    ports:
+      - "3001:8000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-testuser}:${POSTGRES_PASSWORD:-testpass}@postgres:5432/${POSTGRES_DB:-testdb}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-test_secret_key_for_development_only_change_in_production}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-test-logs}
+      MINIO_SECURE: "False"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    networks:
+      - testmanager-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  # Frontend UI
+  frontend:
+    build:
+      context: ./robot-framework-test-manager-fullstack-application-for-test-script-management-36-154/FrontendUI
+      dockerfile: Dockerfile
+    container_name: testmanager-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:3001/api/v1
+      REACT_APP_SITE_URL: http://localhost:3000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - testmanager-network
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+    driver: local
   minio_data:
+    driver: local
 
 networks:
   testmanager-network:
