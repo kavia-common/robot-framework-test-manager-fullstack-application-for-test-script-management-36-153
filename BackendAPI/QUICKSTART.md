@@ -138,7 +138,7 @@ For file storage functionality:
 
 ## Important Notes
 
-✅ **No Authentication Required**: All endpoints are now public. No JWT tokens or API keys needed.
+✅ **No Authentication Required**: All endpoints are public. Authentication has been completely removed from the codebase.
 
 ✅ **Database Optional**: The API will start without a database. Some endpoints will return errors if you try to use them without a database.
 
@@ -191,4 +191,4 @@ These are now warnings, not errors. The API will start anyway.
 3. Connect your frontend application to the API
 4. Deploy to production environment
 
-For more details, see NO_AUTH_CHANGES.md for all changes made to remove authentication.
+For complete details on authentication removal, see NO_AUTH_CHANGES.md.

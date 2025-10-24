@@ -56,18 +56,10 @@ def get_db_context():
 
 # PUBLIC_INTERFACE
 def init_db():
-    """Initialize database with default data."""
-    from .models import Role, UserRoleEnum
+    """Initialize database with default data.
     
-    with get_db_context() as db:
-        # Create default roles if they don't exist
-        for role_name in UserRoleEnum:
-            existing_role = db.query(Role).filter(Role.name == role_name).first()
-            if not existing_role:
-                role = Role(
-                    name=role_name,
-                    description=f"Default {role_name.value} role"
-                )
-                db.add(role)
-        
-        db.commit()
+    Note: Authentication removed - this function is now a no-op.
+    Kept for backward compatibility.
+    """
+    # No initialization needed - auth tables removed
+    pass

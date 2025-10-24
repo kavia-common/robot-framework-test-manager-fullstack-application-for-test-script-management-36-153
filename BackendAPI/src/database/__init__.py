@@ -7,25 +7,18 @@ and initialization utilities.
 
 from .models import (
     Base,
-    User,
-    Role,
-    UserRole,
     TestScript,
     TestCase,
     QueueItem,
     RunHistory,
     AuditLog,
     ExecutionStatus,
-    QueueStatus,
-    UserRoleEnum
+    QueueStatus
 )
 from .connection import get_db, create_tables, init_db
 
 __all__ = [
     'Base',
-    'User',
-    'Role', 
-    'UserRole',
     'TestScript',
     'TestCase',
     'QueueItem',
@@ -33,7 +26,6 @@ __all__ = [
     'AuditLog',
     'ExecutionStatus',
     'QueueStatus',
-    'UserRoleEnum',
     'get_db',
     'create_tables', 
     'init_db'

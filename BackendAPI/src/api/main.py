@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from src.database.connection import create_tables, init_db
-from src.api.routers import auth, tests, cases, execution, queue, history
+from src.api.routers import tests, cases, execution, queue, history
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -12,10 +12,6 @@ logger = logging.getLogger(__name__)
 
 # OpenAPI tags for documentation
 tags_metadata = [
-    {
-        "name": "authentication",
-        "description": "User authentication operations (no auth required)",
-    },
     {
         "name": "test-scripts",
         "description": "Test script management operations",
@@ -60,7 +56,6 @@ app.add_middleware(
 # Include routers with API v1 prefix
 API_V1_PREFIX = "/api/v1"
 
-app.include_router(auth.router, prefix=API_V1_PREFIX)
 app.include_router(tests.router, prefix=API_V1_PREFIX)
 app.include_router(cases.router, prefix=API_V1_PREFIX)
 app.include_router(execution.router, prefix=API_V1_PREFIX)
