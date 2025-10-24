@@ -1,5 +1,5 @@
 import os
-from typing import BinaryIO
+from typing import BinaryIO, Optional
 from minio import Minio
 from minio.error import S3Error
 import logging
@@ -16,21 +16,31 @@ class MinIOService:
         self.bucket_name = os.getenv("MINIO_BUCKET_NAME", "test-files")
         self.secure = os.getenv("MINIO_SECURE", "false").lower() == "true"
         
-        self.client = Minio(
-            self.endpoint,
-            access_key=self.access_key,
-            secret_key=self.secret_key,
-            secure=self.secure
-        )
-        
-        self._ensure_bucket_exists()
+        self._client: Optional[Minio] = None
+        self._initialized = False
+    
+    @property
+    def client(self) -> Minio:
+        """Lazy initialization of MinIO client."""
+        if self._client is None:
+            self._client = Minio(
+                self.endpoint,
+                access_key=self.access_key,
+                secret_key=self.secret_key,
+                secure=self.secure
+            )
+        return self._client
     
     def _ensure_bucket_exists(self):
         """Ensure the configured bucket exists, create if it doesn't."""
+        if self._initialized:
+            return
+            
         try:
             if not self.client.bucket_exists(self.bucket_name):
                 self.client.make_bucket(self.bucket_name)
                 logger.info(f"Created bucket: {self.bucket_name}")
+            self._initialized = True
         except S3Error as e:
             logger.error(f"Error ensuring bucket exists: {e}")
             raise
@@ -51,6 +61,8 @@ class MinIOService:
         Raises:
             S3Error: If upload fails
         """
+        self._ensure_bucket_exists()
+        
         try:
             # Get file size
             file_data.seek(0, 2)  # Seek to end
@@ -86,6 +98,8 @@ class MinIOService:
         Raises:
             S3Error: If download fails
         """
+        self._ensure_bucket_exists()
+        
         try:
             response = self.client.get_object(self.bucket_name, object_name)
             data = response.read()
@@ -110,6 +124,8 @@ class MinIOService:
         Returns:
             True if successful, False otherwise
         """
+        self._ensure_bucket_exists()
+        
         try:
             self.client.remove_object(self.bucket_name, object_name)
             logger.info(f"Successfully deleted {object_name} from bucket {self.bucket_name}")
@@ -134,6 +150,8 @@ class MinIOService:
         Raises:
             S3Error: If URL generation fails
         """
+        self._ensure_bucket_exists()
+        
         try:
             from datetime import timedelta
             url = self.client.presigned_get_object(
@@ -158,6 +176,8 @@ class MinIOService:
         Returns:
             True if file exists, False otherwise
         """
+        self._ensure_bucket_exists()
+        
         try:
             self.client.stat_object(self.bucket_name, object_name)
             return True
@@ -175,6 +195,8 @@ class MinIOService:
         Returns:
             List of object names
         """
+        self._ensure_bucket_exists()
+        
         try:
             objects = self.client.list_objects(self.bucket_name, prefix=prefix)
             return [obj.object_name for obj in objects]

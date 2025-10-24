@@ -3,7 +3,7 @@
 Database initialization script.
 
 This script creates the database tables and sets up initial data
-including default roles and an admin user.
+including default roles. Authentication is disabled.
 """
 
 import os
@@ -11,33 +11,29 @@ import sys
 from pathlib import Path
 
 # Add src to Python path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent))
 
 from src.database.connection import create_tables, init_db, get_db_context
 from src.database.models import User, Role, UserRole, UserRoleEnum
-from src.auth.jwt_handler import get_password_hash
 
 def create_admin_user():
-    """Create default admin user if it doesn't exist."""
-    admin_username = os.getenv("ADMIN_USERNAME", "admin")
-    admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
-    admin_email = os.getenv("ADMIN_EMAIL", "admin@testmanager.com")
+    """Create default system user if it doesn't exist."""
     
     with get_db_context() as db:
-        # Check if admin user already exists
-        existing_admin = db.query(User).filter(User.username == admin_username).first()
-        if existing_admin:
-            print(f"Admin user '{admin_username}' already exists")
+        # Check if system user already exists
+        existing_user = db.query(User).filter(User.username == "system").first()
+        if existing_user:
+            print("System user 'system' already exists")
             return
         
-        # Create admin user
-        admin_user = User(
-            username=admin_username,
-            email=admin_email,
-            hashed_password=get_password_hash(admin_password),
+        # Create system user with dummy password
+        system_user = User(
+            username="system",
+            email="system@testmanager.com",
+            hashed_password="no-auth-required",
             is_active=True
         )
-        db.add(admin_user)
+        db.add(system_user)
         db.flush()
         
         # Get admin role
@@ -45,14 +41,13 @@ def create_admin_user():
         if admin_role:
             # Assign admin role to user
             user_role = UserRole(
-                user_id=admin_user.id,
+                user_id=system_user.id,
                 role_id=admin_role.id
             )
             db.add(user_role)
         
         db.commit()
-        print(f"Created admin user: {admin_username} with password: {admin_password}")
-        print("Please change the default password after first login!")
+        print("Created system user (authentication disabled)")
 
 def main():
     """Main initialization function."""
@@ -72,11 +67,12 @@ def main():
         print("Setting up default roles...")
         init_db()
         
-        # Create admin user
-        print("Creating admin user...")
+        # Create system user
+        print("Creating system user...")
         create_admin_user()
         
         print("Database initialization completed successfully!")
+        print("Note: Authentication is disabled - all endpoints are public")
         
     except Exception as e:
         print(f"Error during database initialization: {e}")

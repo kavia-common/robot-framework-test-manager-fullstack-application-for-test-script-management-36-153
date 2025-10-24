@@ -5,10 +5,9 @@ from pydantic import BaseModel
 from datetime import datetime
 import json
 
-from ...database.connection import get_db
-from ...database.models import RunHistory, User
-from ...auth.rbac import require_permission, Permission
-from ...services.minio_service import minio_service
+from src.database.connection import get_db
+from src.database.models import RunHistory
+from src.services.minio_service import minio_service
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -39,7 +38,6 @@ async def list_run_history(
     status: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    current_user: User = Depends(require_permission(Permission.VIEW_HISTORY)),
     db: Session = Depends(get_db)
 ):
     """
@@ -50,7 +48,6 @@ async def list_run_history(
         status: Optional filter by execution status
         page: Page number (starts from 1)
         page_size: Number of items per page
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -107,7 +104,6 @@ async def list_run_history(
 @router.get("/{run_id}", response_model=RunHistoryResponse)
 async def get_run_history(
     run_id: str,
-    current_user: User = Depends(require_permission(Permission.VIEW_HISTORY)),
     db: Session = Depends(get_db)
 ):
     """
@@ -115,7 +111,6 @@ async def get_run_history(
     
     Args:
         run_id: ID of the run to retrieve
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -152,7 +147,6 @@ async def get_run_history(
 @router.get("/logs/{run_id}", response_model=LogResponse)
 async def get_execution_logs(
     run_id: str,
-    current_user: User = Depends(require_permission(Permission.VIEW_HISTORY)),
     db: Session = Depends(get_db)
 ):
     """
@@ -160,7 +154,6 @@ async def get_execution_logs(
     
     Args:
         run_id: ID of the run to get logs for
-        current_user: Current authenticated user
         db: Database session
         
     Returns:

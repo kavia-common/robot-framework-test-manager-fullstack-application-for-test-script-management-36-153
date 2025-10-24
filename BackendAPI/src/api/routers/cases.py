@@ -4,9 +4,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
 
-from ...database.connection import get_db
-from ...database.models import TestCase, TestScript, User
-from ...auth.rbac import require_permission, Permission
+from src.database.connection import get_db
+from src.database.models import TestCase, TestScript
 
 router = APIRouter(prefix="/cases", tags=["test-cases"])
 
@@ -44,11 +43,13 @@ class PaginationResponse(BaseModel):
     page: int
     page_size: int
 
+# Default system user ID for operations
+SYSTEM_USER_ID = "system"
+
 # PUBLIC_INTERFACE
 @router.post("/", response_model=StandardResponse, status_code=201)
 async def create_test_case(
     test_case_data: TestCaseCreate,
-    current_user: User = Depends(require_permission(Permission.CREATE_TEST_CASE)),
     db: Session = Depends(get_db)
 ):
     """
@@ -56,7 +57,6 @@ async def create_test_case(
     
     Args:
         test_case_data: Test case data
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -76,7 +76,7 @@ async def create_test_case(
             name=test_case_data.name,
             description=test_case_data.description,
             variables=test_case_data.variables,
-            created_by=current_user.id
+            created_by=SYSTEM_USER_ID
         )
         
         db.add(test_case)
@@ -102,7 +102,6 @@ async def list_test_cases(
     name: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    current_user: User = Depends(require_permission(Permission.READ_TEST_CASE)),
     db: Session = Depends(get_db)
 ):
     """
@@ -113,7 +112,6 @@ async def list_test_cases(
         name: Optional filter by test case name (partial match)
         page: Page number (starts from 1)
         page_size: Number of items per page
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -144,7 +142,6 @@ async def list_test_cases(
 @router.get("/{case_id}", response_model=TestCaseResponse)
 async def get_test_case(
     case_id: str,
-    current_user: User = Depends(require_permission(Permission.READ_TEST_CASE)),
     db: Session = Depends(get_db)
 ):
     """
@@ -152,7 +149,6 @@ async def get_test_case(
     
     Args:
         case_id: ID of the test case
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -173,7 +169,6 @@ async def get_test_case(
 async def update_test_case(
     case_id: str,
     test_case_data: TestCaseUpdate,
-    current_user: User = Depends(require_permission(Permission.UPDATE_TEST_CASE)),
     db: Session = Depends(get_db)
 ):
     """
@@ -182,7 +177,6 @@ async def update_test_case(
     Args:
         case_id: ID of the test case to update
         test_case_data: Updated test case data
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -220,7 +214,6 @@ async def update_test_case(
 @router.delete("/{case_id}", status_code=204)
 async def delete_test_case(
     case_id: str,
-    current_user: User = Depends(require_permission(Permission.DELETE_TEST_CASE)),
     db: Session = Depends(get_db)
 ):
     """
@@ -228,7 +221,6 @@ async def delete_test_case(
     
     Args:
         case_id: ID of the test case to delete
-        current_user: Current authenticated user
         db: Database session
     """
     test_case = db.query(TestCase).filter(TestCase.id == case_id).first()

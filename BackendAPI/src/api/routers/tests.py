@@ -4,10 +4,9 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
 
-from ...database.connection import get_db
-from ...database.models import TestScript, User
-from ...auth.rbac import require_permission, Permission
-from ...services.minio_service import minio_service
+from src.database.connection import get_db
+from src.database.models import TestScript
+from src.services.minio_service import minio_service
 
 router = APIRouter(prefix="/tests", tags=["test-scripts"])
 
@@ -45,11 +44,13 @@ class PaginationResponse(BaseModel):
     page: int
     page_size: int
 
+# Default system user ID for operations
+SYSTEM_USER_ID = "system"
+
 # PUBLIC_INTERFACE
 @router.post("/", response_model=StandardResponse, status_code=201)
 async def create_test_script(
     test_script_data: TestScriptCreate,
-    current_user: User = Depends(require_permission(Permission.CREATE_TEST_SCRIPT)),
     db: Session = Depends(get_db)
 ):
     """
@@ -57,7 +58,6 @@ async def create_test_script(
     
     Args:
         test_script_data: Test script data
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -69,7 +69,7 @@ async def create_test_script(
             description=test_script_data.description,
             content=test_script_data.content,
             script_metadata=test_script_data.script_metadata,
-            created_by=current_user.id
+            created_by=SYSTEM_USER_ID
         )
         
         db.add(test_script)
@@ -93,7 +93,6 @@ async def create_test_script(
 async def list_test_scripts(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    current_user: User = Depends(require_permission(Permission.READ_TEST_SCRIPT)),
     db: Session = Depends(get_db)
 ):
     """
@@ -102,7 +101,6 @@ async def list_test_scripts(
     Args:
         page: Page number (starts from 1)
         page_size: Number of items per page
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -126,7 +124,6 @@ async def list_test_scripts(
 @router.get("/{test_id}", response_model=TestScriptResponse)
 async def get_test_script(
     test_id: str,
-    current_user: User = Depends(require_permission(Permission.READ_TEST_SCRIPT)),
     db: Session = Depends(get_db)
 ):
     """
@@ -134,7 +131,6 @@ async def get_test_script(
     
     Args:
         test_id: ID of the test script
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -155,7 +151,6 @@ async def get_test_script(
 async def update_test_script(
     test_id: str,
     test_script_data: TestScriptUpdate,
-    current_user: User = Depends(require_permission(Permission.UPDATE_TEST_SCRIPT)),
     db: Session = Depends(get_db)
 ):
     """
@@ -164,7 +159,6 @@ async def update_test_script(
     Args:
         test_id: ID of the test script to update
         test_script_data: Updated test script data
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -202,7 +196,6 @@ async def update_test_script(
 @router.delete("/{test_id}", status_code=204)
 async def delete_test_script(
     test_id: str,
-    current_user: User = Depends(require_permission(Permission.DELETE_TEST_SCRIPT)),
     db: Session = Depends(get_db)
 ):
     """
@@ -210,7 +203,6 @@ async def delete_test_script(
     
     Args:
         test_id: ID of the test script to delete
-        current_user: Current authenticated user
         db: Database session
     """
     test_script = db.query(TestScript).filter(TestScript.id == test_id).first()

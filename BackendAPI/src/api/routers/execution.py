@@ -3,10 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from ...database.connection import get_db
-from ...database.models import TestCase, User
-from ...auth.rbac import require_permission, Permission
-from ...services.execution_service import execution_service
+from src.database.connection import get_db
+from src.database.models import TestCase
+from src.services.execution_service import execution_service
 
 router = APIRouter(prefix="/execute", tags=["execution"])
 
@@ -20,11 +19,13 @@ class StandardResponse(BaseModel):
     data: Dict[str, Any]
     error: str = None
 
+# Default system user ID for operations
+SYSTEM_USER_ID = "system"
+
 # PUBLIC_INTERFACE
 @router.post("/", response_model=StandardResponse, status_code=202)
 async def execute_test_cases(
     execution_request: ExecutionRequest,
-    current_user: User = Depends(require_permission(Permission.EXECUTE_TEST)),
     db: Session = Depends(get_db)
 ):
     """
@@ -32,7 +33,6 @@ async def execute_test_cases(
     
     Args:
         execution_request: Execution request containing case IDs and configuration
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -58,7 +58,7 @@ async def execute_test_cases(
             # Execute immediately
             run_ids = await execution_service.execute_multiple_test_cases(
                 execution_request.case_ids,
-                current_user.id,
+                SYSTEM_USER_ID,
                 execution_request.config
             )
             
@@ -73,7 +73,7 @@ async def execute_test_cases(
             
         elif execution_request.run_type == "queued":
             # Add to queue for later execution
-            from ...services.queue_service import queue_service
+            from src.services.queue_service import queue_service
             
             queue_item_ids = queue_service.add_to_queue(
                 execution_request.case_ids,

@@ -1,24 +1,20 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer
 import logging
 
-from ..database.connection import create_tables, init_db
-from .routers import auth, tests, cases, execution, queue, history
+from src.database.connection import create_tables, init_db
+from src.api.routers import auth, tests, cases, execution, queue, history
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Security scheme
-security = HTTPBearer()
-
 # OpenAPI tags for documentation
 tags_metadata = [
     {
         "name": "authentication",
-        "description": "User authentication and authorization operations",
+        "description": "User authentication operations (no auth required)",
     },
     {
         "name": "test-scripts",
@@ -42,10 +38,10 @@ tags_metadata = [
     },
 ]
 
-# Create FastAPI app with comprehensive metadata
+# Create FastAPI app without security schemes
 app = FastAPI(
     title="Robot Framework Test Manager API",
-    description="RESTful API for managing Robot Framework test scripts, test cases, execution, queue, run history, and logs. Secured with JWT/OAuth2, role-based access, and audit logging.",
+    description="RESTful API for managing Robot Framework test scripts, test cases, execution, queue, run history, and logs. All endpoints are public with no authentication required.",
     version="1.0.0",
     openapi_tags=tags_metadata,
     servers=[{"url": "/api/v1", "description": "Main API server"}]
@@ -75,9 +71,13 @@ app.include_router(history.router, prefix=API_V1_PREFIX)
 async def startup_event():
     """Initialize database and create tables on startup."""
     logger.info("Starting Robot Framework Test Manager API...")
-    create_tables()
-    init_db()
-    logger.info("Database initialized successfully")
+    try:
+        create_tables()
+        init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.warning(f"Database initialization failed (this is expected if database is not running): {e}")
+        logger.info("API will start without database - some endpoints may not work")
 
 @app.get("/", tags=["health"])
 def health_check():
@@ -102,30 +102,7 @@ def detailed_health_check():
         "version": "1.0.0",
         "service": "Robot Framework Test Manager API",
         "components": {
-            "database": "operational",
-            "minio": "operational", 
-            "authentication": "operational"
+            "database": "check connection",
+            "minio": "check connection"
         }
-    }
-
-# WebSocket route documentation for API docs
-@app.get("/ws/docs", tags=["websocket"], include_in_schema=True)
-def websocket_documentation():
-    """
-    WebSocket connection documentation and usage information.
-    
-    Note: WebSocket endpoints for real-time updates on test execution status,
-    queue changes, and run history updates can be implemented here.
-    
-    Returns:
-        WebSocket usage documentation
-    """
-    return {
-        "websocket_endpoints": {
-            "/ws/execution": "Real-time test execution updates",
-            "/ws/queue": "Queue status changes",
-            "/ws/history": "New run history entries"
-        },
-        "usage": "Connect using WebSocket client to receive real-time updates",
-        "authentication": "Include JWT token in connection headers"
     }

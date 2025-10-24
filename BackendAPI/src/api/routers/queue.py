@@ -3,10 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from ...database.connection import get_db
-from ...database.models import User
-from ...auth.rbac import require_permission, Permission
-from ...services.queue_service import queue_service
+from src.database.connection import get_db
+from src.services.queue_service import queue_service
 
 router = APIRouter(prefix="/queue", tags=["queue"])
 
@@ -33,14 +31,12 @@ class StandardResponse(BaseModel):
 # PUBLIC_INTERFACE
 @router.get("/", response_model=List[QueueItemResponse])
 async def list_queue_items(
-    current_user: User = Depends(require_permission(Permission.MANAGE_QUEUE)),
     db: Session = Depends(get_db)
 ):
     """
     List currently queued test cases.
     
     Args:
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -53,7 +49,6 @@ async def list_queue_items(
 @router.post("/", response_model=StandardResponse, status_code=201)
 async def add_to_queue(
     queue_request: QueueRequest,
-    current_user: User = Depends(require_permission(Permission.MANAGE_QUEUE)),
     db: Session = Depends(get_db)
 ):
     """
@@ -61,7 +56,6 @@ async def add_to_queue(
     
     Args:
         queue_request: Queue request containing case IDs and configuration
-        current_user: Current authenticated user
         db: Database session
         
     Returns:
@@ -98,7 +92,6 @@ async def add_to_queue(
 @router.delete("/{case_id}", status_code=204)
 async def remove_from_queue(
     case_id: str,
-    current_user: User = Depends(require_permission(Permission.MANAGE_QUEUE)),
     db: Session = Depends(get_db)
 ):
     """
@@ -106,7 +99,6 @@ async def remove_from_queue(
     
     Args:
         case_id: ID of the test case to remove from queue
-        current_user: Current authenticated user
         db: Database session
     """
     success = queue_service.remove_from_queue(case_id)
