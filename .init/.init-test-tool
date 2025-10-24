@@ -1,0 +1,4 @@
+{
+    "command": "pytest",
+    "working_directory": "/home/kavia/workspace/code-generation/robot-framework-test-manager-fullstack-application-for-test-script-management-36-153/BackendAPI"
+}
